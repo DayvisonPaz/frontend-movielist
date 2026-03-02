@@ -1,49 +1,149 @@
-import Header from "./header";
-import Spinner from './spinner';
-import React,{ useContext,useEffect, useState } from 'react';
-import axios  from 'axios';
-import genres from './moviesGenres';
-import { UserContext } from './UserContext';
-import { useNavigate } from "react-router-dom";
+import Header from "./header"
+import Spinner from "./spinner"
+import React, { useEffect, useState } from "react"
+import axios from "axios"
+import { useNavigate } from "react-router-dom"
 
+export default function List() {
 
-export default function List(){
   const navigate = useNavigate()
-  const {addList,ifLogin} = useContext(UserContext)
+  const [list, setList] = useState([])
+  const [loading, setLoading] = useState(true)
 
-    async function addItem(x){
-      const loged = await ifLogin()
-      loged===true?addList(x):navigate('/login')
-
-     
-      }
-
-const [list,setList]= useState([])
-useEffect(()=>{
   const token = localStorage.getItem("token")
   const id = localStorage.getItem("id")
-  if(token && id){load()
-   async function load(){axios.post(`https://backend-movielist.onrender.com/list`,{id:id},{headers: {'Authorization': `Basic `+ token}
-    }).then(response=>setList(response.data)).catch(err=>console.log(err))}
+
+  /* ========================= */
+  /* BUSCAR LISTA DO BACKEND  */
+  /* ========================= */
+  async function loadList() {
+
+    if (!token || !id) {
+      navigate("/login")
+      return
+    }
+
+    try {
+
+      const response = await axios.post(
+        "https://backend-movielist.onrender.com/list",
+        { id },
+        {
+          headers: {
+            Authorization: `Basic ${token}`
+          }
+        }
+      )
+
+      setList(response.data)
+      setLoading(false)
+
+    } catch (err) {
+      console.log(err)
+      setLoading(false)
+    }
   }
-   
-},[])
 
-    return(<div> 
+  useEffect(() => {
+    loadList()
+  }, [])
 
+  /* ========================= */
+  /* ADICIONAR / REMOVER ITEM */
+  /* ========================= */
+  async function toggleItem(item) {
 
-   <Header ></Header> 
+    try {
 
+      await axios.post(
+        "https://backend-movielist.onrender.com/addlist",
+        {
+          list: item,
+          id: id
+        },
+        {
+          headers: {
+            Authorization: `Basic ${token}`
+          }
+        }
+      )
 
-{list.length>0?<div className=" w-screen h-screen flex flex-col items-center overflow-scroll">{list.map(e=>
- <div className="flex p-2 mt-8 rounded-md shadow-2xl text-base w-screen sm:h-1/3 sm:w-3/4 md:w-2/3 lg:w-3/5 xl:w-1/2 2xl:w-2/5  h-1/4 bg-white">
-  <img className="h-full rounded-md" src={"https://image.tmdb.org/t/p/w500/"+e.poster_path} alt="" />
-<div className="justify-around p-8 items-center text-xs sm:text-sm md:text-base lg:text-base xl:text-lg flex flex-col"><p>{e.original_title}</p>
- <p>{e.overview.substring(0,200)+'...'}</p> 
- <div className="w-full flex justify-between"><span>{e.release_date?e.release_date:e.first_air_date}</span> <span>{e.vote_average}</span> <span>{""}</span><img className='h-8 animate-bounce cursor-pointer' src="https://cdn-icons-png.flaticon.com/512/3128/3128313.png" alt="like"  onClick={()=>addItem(e)} /> </div>
- </div>
- </div>)}</div>:<Spinner/>}
+      // Recarrega lista após alterar
+      loadList()
 
+    } catch (err) {
+      console.log(err)
+    }
+  }
 
+  return (
+    <div className="bg-slate-900 min-h-screen text-white">
 
-      </div>)}
+      <Header />
+
+      {loading && <Spinner />}
+
+      {!loading && list.length === 0 && (
+        <div className="text-center mt-10">
+          Sua lista está vazia
+        </div>
+      )}
+
+      {!loading && list.length > 0 && (
+        <div className="flex flex-col items-center mt-6 gap-6">
+
+          {list.map(item => (
+
+            <div
+              key={item.id}
+              className="flex bg-white text-black w-11/12 md:w-2/3 rounded-lg overflow-hidden shadow-lg"
+            >
+
+              <img
+                className="w-40"
+                src={`https://image.tmdb.org/t/p/w500/${item.poster_path}`}
+                alt=""
+              />
+
+              <div className="flex flex-col justify-between p-4 flex-1">
+
+                <div>
+                  <h2 className="font-bold">
+                    {item.original_title || item.name}
+                  </h2>
+
+                  <p className="text-sm mt-2">
+                    {item.overview?.substring(0, 150)}...
+                  </p>
+                </div>
+
+                <div className="flex justify-between items-center mt-4">
+
+                  <span>
+                    {item.release_date?.substring(0, 4) ||
+                      item.first_air_date?.substring(0, 4)}
+                  </span>
+
+                  <span>{item.vote_average}</span>
+
+                  <button
+                    onClick={() => toggleItem(item)}
+                    className="bg-red-600 text-white px-3 py-1 rounded"
+                  >
+                    Remover
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          ))}
+
+        </div>
+      )}
+
+    </div>
+  )
+}
